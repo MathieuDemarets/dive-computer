@@ -1,6 +1,8 @@
 import yaml
 from yaml.loader import SafeLoader
 import pandas as pd
+# relative imports
+from .parameters import Parameters
 
 class Bottle:
     """
@@ -33,26 +35,32 @@ class Bottle:
             columns=["Time", "Remaining Pressure (bar)"],
             data=[[0, self._remaining_pressure]]
         )
+        self._parameters = None
 
 ##################################################################################################################
 ## CLASS METHODS
 ##################################################################################################################
 
     @classmethod
-    def from_yaml(cls, yaml_path: str):
+    def from_yaml(cls, parameters_path:str, referential_path:str):
         """
-        Create a Bottle instance from a YAML configuration file.
+        Create a Bottle instance from a YAML configuration file with the specified parameters and referential paths.
+
+        Parameters:
+        - parameters_path (str): The path to the YAML file containing the dive parameters.
+        - referential_path (str): The path to the YAML file containing the referential data
         """
-        with open(yaml_path, "r") as yaml_file:
-            params = yaml.load(yaml_file, Loader=SafeLoader)
-        return cls(
-            volume=params["bottle"]["volume"],
-            pressure=params["bottle"]["pressure"],
-            type=params["bottle"].get("type", "air"),
-            ppO2=params["bottle"].get("ppO2", 0.21),
-            ppN2=params["bottle"].get("ppN2", 0.79),
-            reserve=params["bottle"].get("reserve", 50)
+        params = Parameters(yaml_path=parameters_path, referential_path=referential_path)
+        bottle = cls(
+            volume=params.get_parameter(["bottle", "volume"]),
+            pressure=params.get_parameter(["bottle", "pressure"]),
+            type=params.get_parameter(["bottle", "type"]),
+            ppO2=params.get_parameter(["attributes", "bottle", "type", "ppO2"]),
+            ppN2=params.get_parameter(["attributes", "bottle", "type", "ppN2"]),
+            reserve=params.get_parameter(["safety", "reserve"])
         )
+        bottle._parameters = params
+        return bottle
 
 #################################################################################################################
 ## PROPERTIES
@@ -81,6 +89,10 @@ class Bottle:
     @property
     def remaining_pressure(self):
         return self._remaining_pressure
+    
+    @property
+    def parameters(self):
+        return self._parameters
     
     @property
     def pressure_log(self):

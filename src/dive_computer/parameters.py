@@ -1,19 +1,28 @@
 import yaml
 from yaml import SafeLoader
 import os
+from .helpers import dict_to_str
 
 class Parameters:
-    def __init__(self, yaml_path, referential_path='././conf/referential.yml'):
+    def __init__(self, yaml_path:str, referential_path:str):
         assert os.path.exists(yaml_path), f"YAML file not found: {yaml_path}"
-        assert os.path.exists(referential_path), f"Referential file not found: {referential_path}"
         with open(yaml_path, 'r') as file:
             self.params = yaml.load(file, Loader=SafeLoader)
+        assert os.path.exists(referential_path), f"Referential file not found: {referential_path}"
         with open(referential_path, 'r') as file:
             self.referential = yaml.load(file, Loader=SafeLoader)
         self.params["attributes"] = {}
         self.setup_check()
         self.setup_enrich()
+        self.yaml_path = yaml_path
+        self.referential_path = referential_path
+
+    def __repr__(self):
+        return f"Parameters(yaml_path='{self.yaml_path}', referential_path='{self.referential_path}')"
     
+    def __str__(self):
+        return dict_to_str(self.params)
+
     def setup_check(self):
         # Check the referential to ensure parameters are valid and to enrich them
         def check_values(param_dict, ref_dict, key, full_key):
@@ -54,4 +63,4 @@ class Parameters:
                 raise KeyError(f"Key path {'.'.join(key_path)} not found in parameters")
             target = target[key]
         return target
-        
+
