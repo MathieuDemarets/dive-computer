@@ -4,8 +4,9 @@ def dict_to_str(d, string="", indent=0):
             string += " " * indent + f"{key}:\n"
             string += dict_to_str(value, "", indent + 4)
         else:
-            string += " " * indent + f"{key}: {value}\n"    
+            string += " " * indent + f"{key}: {value}\n"
     return string
+
 
 def print_dict(d, indent=0):
     if not isinstance(d, dict):
