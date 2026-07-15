@@ -1,0 +1,32 @@
+dive_parameters:
+  certification:
+    values: ["openWaterDiver", "advancedOpenWaterDiver"]
+    attributes:
+      openWaterDiver:
+        maxDepth: 18
+        maxPpO2: 1.4
+      advancedOpenWaterDiver:
+        maxDepth: 40
+        maxPpO2: 1.6
+  bottle:
+    type:
+      values: ["air", "nitrox", "oxygen"]
+      attributes:
+        air:
+          ppO2: 0.21
+          ppN2: 0.79
+        nitrox:
+          ppO2: 0.32
+          ppN2: 0.68
+        oxygen:
+          ppO2: 1.0
+          ppN2: 0.0
+    volume: 
+      values: [12, 15, 20, 24]
+
+scripts:
+  dive_planner:
+    dive_log:
+      type:
+        accepted_inputs: ["Start", "Descent", "Level", "Bottom", "Ascent", "Safety Stop"]
+  

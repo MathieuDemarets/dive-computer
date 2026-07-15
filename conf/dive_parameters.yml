@@ -1,0 +1,15 @@
+diver: Mathieu Demarets
+certification: openWaterDiver
+bottle:
+  type: air
+  volume: 12
+  pressure: 200
+consumption:
+  surface: 15
+transitionTime: 2
+safety:
+  safetyStop:
+    depth: 5
+    time: 5
+  consumptionBuffer: 0
+  reserve: 50

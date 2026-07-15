@@ -34,3 +34,6 @@ htmlcov/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Exploration and temporary files
+exploration/*
