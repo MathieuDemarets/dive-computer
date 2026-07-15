@@ -1,9 +1,7 @@
 diver: Mathieu Demarets
 certification: openWaterDiver
 bottle:
-  type: air # air, nitrox, oxygen
-  ppO2: 0.21
-  ppN2: 0.79
+  type: air
   volume: 12
   pressure: 200
 consumption:
@@ -14,10 +12,3 @@ safety:
     time: 5
   consumptionBuffer: 0
   reserve: 50
-  maxPpO2: 1.4
-
-certifications:
-  openWaterDiver:
-    maxDepth: 18
-  advancedOpenWaterDiver:
-    maxDepth: 40
