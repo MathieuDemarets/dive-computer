@@ -59,7 +59,10 @@ class Bottle:
             ppN2=params.get_parameter(["attributes", "bottle", "type", "ppN2"]),
             reserve=params.get_parameter(["safety", "reserve"])
         )
-        bottle._parameters = params
+        bottle_params = {}
+        bottle_params["bottle"] = params.get_parameter(["bottle"])
+        bottle_params["attributes"] = params.get_parameter(["attributes", "bottle"])
+        bottle._parameters = bottle_params
         return bottle
 
 #################################################################################################################

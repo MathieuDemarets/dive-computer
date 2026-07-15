@@ -6,6 +6,7 @@ bottle:
   pressure: 200
 consumption:
   surface: 15
+transitionTime: 2
 safety:
   safetyStop:
     depth: 5

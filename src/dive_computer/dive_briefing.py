@@ -1,9 +1,8 @@
 import pandas as pd
 import matplotlib.pyplot as plt
-from yaml.loader import SafeLoader
-import yaml
 # relative imports
 from .bottle import Bottle
+from .parameters import Parameters
 
 class DiveBriefing:
     def __init__(
@@ -12,6 +11,7 @@ class DiveBriefing:
         safety_stop_depth: int,
         safety_stop_time: int,
         max_depth: int,
+        max_ppo2: float,
         bottle: Bottle
     ):
         self._surface_consumption = surface_consumption
@@ -19,6 +19,7 @@ class DiveBriefing:
         self._safety_stop_time = safety_stop_time
         self._bottle = bottle
         self._max_depth = max_depth
+        self._max_ppo2 = max_ppo2
         self._dive_log = pd.DataFrame(
             columns=[
                 "Step", "Type", 
@@ -28,27 +29,29 @@ class DiveBriefing:
                 "Start Remaining Pressure (bar)", "End Remaining Pressure (bar)",
                 "Start ppO2 (bar)", "End ppO2 (bar)",
                 "Consumption (L)", "Total Consumption (L)",
-                "Consumption (bar)", "Total Consumption (bar)",
-                "Warning"
+                "Consumption (bar)", "Total Consumption (bar)"
             ],
             data=[]
         )
+        self._parameters = None
 
 ##################################################################################################################
 ## CLASS METHODS
 ##################################################################################################################
 
     @classmethod
-    def from_yaml(cls, yaml_file: str):
-        with open(yaml_file, 'r') as file:
-            params = yaml.load(file, Loader=SafeLoader)
-        return cls(
-            surface_consumption=params['consumption']['surface'],
-            safety_stop_depth=params['safety']['safetyStop']['depth'],
-            safety_stop_time=params['safety']['safetyStop']['time'],
-            max_depth=params['certification'][params['certification']]['maxDepth'],
-            bottle=Bottle.from_yaml(yaml_file)
+    def from_yaml(cls, config_file: str, referential_file: str):
+        params = Parameters(config_file, referential_file)
+        dive_briefing = cls(
+            surface_consumption=params.get_parameter(["consumption", "surface"]),
+            safety_stop_depth=params.get_parameter(["safety", "safetyStop", "depth"]),
+            safety_stop_time=params.get_parameter(["safety", "safetyStop", "time"]),
+            max_depth=params.get_parameter(["attributes", "certification", "maxDepth"]),
+            max_ppo2=params.get_parameter(["attributes", "certification", "maxPpO2"]),
+            bottle=Bottle.from_yaml(config_file, referential_file)
         )
+        dive_briefing._parameters = params
+        return dive_briefing
 
 ##################################################################################################################
 ## PROPERTIES
@@ -69,89 +72,242 @@ class DiveBriefing:
     @property
     def bottle(self):
         return self._bottle
-
-    # @property
-    # def pressure_at_depth(self):
-    #     return [1 + (depth / 10) for depth in self.depths]
-
-    # @property
-    # def consumption_at_depth(self):
-    #     consumption = [self.surface_consumption * p for p in self.pressure_at_depth]
-    #     return consumption
+    @property
+    def max_ppo2(self):
+        return self._max_ppo2
+    @property
+    def parameters(self):
+        return self._parameters
+    @property
+    def dive_log(self):
+        return self._dive_log
     
-    # @property
-    # def consumption_profile(self):
-    #     return pd.DataFrame({
-    #         'Depth (m)': self.depths,
-    #         'Time (min)': self.times,
-    #         'Pressure (bar)': self.pressure_at_depth,
-    #         'Consumption (L/min)': self.consumption_at_depth,
-    #         'Consumption (L)': [c * t for c, t in zip(self.consumption_at_depth, self.times)],
-    #         'Total Consumption (L)': pd.Series([c * t for c, t in zip(self.consumption_at_depth, self.times)]).cumsum(),
-    #         "Consumption (bar)": [c * t / self.bottle.volume for c, t in zip(self.consumption_at_depth, self.times)],
-    #         "Total Consumption (bar)": pd.Series([c * t / self.bottle.volume for c, t in zip(self.consumption_at_depth, self.times)]).cumsum()
-    #     })
+    def dive_log_append(self, new_log: pd.DataFrame):
+        assert isinstance(new_log, pd.DataFrame), "new_log must be a pandas DataFrame"
+        assert all(col in new_log.columns for col in self._dive_log.columns), "new_log must have the same columns as the existing dive log"
+        self._dive_log = pd.concat([self._dive_log, new_log], ignore_index=True)
+
+    def dive_log_reset(self):
+        self._dive_log = pd.DataFrame(
+            columns=[
+                "Step", "Type", 
+                "Start Time (min)", "End Time (min)", 
+                "Start Depth (m)", "End Depth (m)", 
+                "Start Pressure (bar)", "End Pressure (bar)",
+                "Start Remaining Pressure (bar)", "End Remaining Pressure (bar)",
+                "Start ppO2 (bar)", "End ppO2 (bar)",
+                "Consumption (L)", "Total Consumption (L)",
+                "Consumption (bar)", "Total Consumption (bar)"
+            ],
+            data=[]
+        )
 
 ###################################################################################################################
 ## METHODS
 ###################################################################################################################
+
+    def pressure_at_depth(self, depth: float) -> float:
+        """
+        Calculate the pressure at a given depth in bar.
+        
+        Parameters:
+            depth (float): The depth in meters.
+
+        Returns:
+            float: The pressure in bar.
+        """
+        return 1 + (depth / 10)
     
-    # def plot_consumption_profile(self, consumption_unit: str = 'L'):
-    #     """
-    #     Plots the dive profile and total consumption over time.
-    #     Args:
-    #         consumption_unit (str): The unit of consumption to plot ('L' for liters or 'bar' for bar).
-    #     """
-    #     df = self.consumption_profile
-    #     fig, ax1 = plt.subplots(figsize=(10, 6))
-    #     ax2 = ax1.twinx()
-
-    #     t = 0
-    #     d = 0
-    #     c = 0
-
-    #     ax1.set_ylim(-self.max_depth*(1.1), 0)
-    #     ax1.axhline(y=-self.max_depth, color='red', linestyle=':', label='Max Depth')
-
-    #     if consumption_unit == 'L':
-    #         ax2.set_ylim(0, self.bottle.total_gas * 1.1)
-    #         ax2.axhline(y=self.bottle.total_gas, color='green', linestyle=':', label='Total Bottle Volume (L)')
-    #         ax2.axhline(y=self.bottle.total_gas - self.bottle.volume * 50, color='purple', linestyle=':', label='Reserve (50 bar)')
-    #     elif consumption_unit == 'bar':
-    #         ax2.set_ylim(0, self.bottle.pressure * 1.1)
-    #         ax2.axhline(y=self.bottle.pressure, color='green', linestyle=':', label='Total Bottle Pressure (bar)')
-    #         ax2.axhline(y=self.bottle.pressure - 50, color='purple', linestyle=':', label='Reserve (50 bar)')
-
-    #     for i in range(len(df)):
-    #         depth = df['Depth (m)'][i]
-    #         duration = df['Time (min)'][i]
-    #         if consumption_unit == 'L':
-    #             cons = df['Total Consumption (L)'][i]
-    #         elif consumption_unit == 'bar':
-    #             cons = df['Total Consumption (bar)'][i]
-    #         else:
-    #             raise ValueError("Invalid consumption unit. Choose 'L' or 'bar'.")
-
-    #         ax1.plot([t, t], [d, -depth], color='blue')
-    #         ax1.plot([t, t + duration], [-depth, -depth], color='blue')
-    #         ax2.plot([t, t + duration], [c, cons], color='orange', linestyle='--')
-
-    #         t += duration
-    #         d = -depth
-    #         c = cons
-
-    #     ax1.set_xlabel('Time (min)')
-    #     ax1.set_ylabel('Depth (m)', color='blue')
-    #     ax1.tick_params(axis='y', labelcolor='blue')
-
-    #     if consumption_unit == 'L':
-    #         ax2.set_ylabel('Total Consumption (L)', color='orange')
-    #     elif consumption_unit == 'bar':
-    #         ax2.set_ylabel('Total Consumption (bar)', color='orange')
-    #     ax2.tick_params(axis='y', labelcolor='orange')
-
-    #     fig.suptitle('Dive Profile and Total Consumption')
-    #     fig.legend(loc='upper right', bbox_to_anchor=(1, 1))
-    #     fig.tight_layout()
-    #     plt.show()
+    def ppO2_at_depth(self, depth: float) -> float:
+        """
+        Calculate the partial pressure of oxygen (ppO2) at a given depth in bar.
+        
+        Parameters:
+            depth (float): The depth in meters.
+        
+        Returns:
+            float: The partial pressure of oxygen in bar.
+        """
+        pressure = self.pressure_at_depth(depth)
+        return pressure * self.parameters.get_parameter(["attributes", "bottle", "type", "ppO2"])
     
+    def test_depth_safe(self, depth: float):
+        """
+        Test if the dive is safe at a given depth.
+        
+        Parameters:
+            depth (float): The depth in meters.
+
+        Raises:
+            AssertionError: If the ppO2 at the given depth exceeds the maximum ppO2.
+            AssertionError: If the depth exceeds the maximum depth for the certification.
+        """
+        assert self.ppO2_at_depth(depth) <= self.max_ppo2, f"ppO2 at depth {depth}m ({self.ppO2_at_depth(depth):.2f} bar) exceeds max ppO2 of {self.max_ppo2} bar"
+        assert depth <= self.max_depth, f"Depth {depth}m exceeds max depth of {self.max_depth}m (for certification {self.parameters.get_parameter(['certification'])})"
+    
+    def consumption_level(
+            self,
+            start_time: int,
+            end_time: int,
+            start_depth: float,
+            end_depth: float,
+            unit: str = "L"
+        ) -> float:
+        """
+        Calculate the consumption level at a given depth in liters per minute.
+        
+        Parameters:
+            start_time (int): The start time in minutes.
+            end_time (int): The end time in minutes.
+            start_depth (float): The start depth in meters.
+            end_depth (float): The end depth in meters.
+            unit (str): The unit of measurement for consumption ("L" or "bar"). Defaults to "L".
+        
+        Returns:
+            float: The consumption in liters or bar, depending on the unit specified.
+        """
+        start_pressure = self.pressure_at_depth(start_depth)
+        end_pressure = self.pressure_at_depth(end_depth)
+        average_pressure = (start_pressure + end_pressure) / 2
+        duration = end_time - start_time
+        gas_consumed = self.surface_consumption * average_pressure * duration
+        if unit == "L":
+            return gas_consumed
+        elif unit == "bar":
+            return gas_consumed / self.bottle.volume
+        else:
+            raise ValueError("Invalid unit. Please use 'L' or 'bar'.")
+    
+    def add_dive_step(self, step_type:str, time: int, end_depth: float, warning:bool=True):
+        """
+        Add a dive step to the dive log.
+        
+        Parameters:
+            step_type (str): The type of the dive step (e.g., "Descent", "Level", "Bottom", "Ascent", "Safety Stop").
+            time (int): The time in minutes.
+            end_depth (float): The end depth in meters.
+            warning (bool): Whether to include a warning for this step. Defaults to True.
+        """
+        if self.parameters is not None:
+            accepted_step_types = self.parameters.get_parameter(["accepted_inputs", "dive_briefing", "dive_log", "type"])
+            assert step_type in accepted_step_types, f"Invalid step type: {step_type}. Accepted step types: {accepted_step_types}"
+        step = len(self._dive_log)
+        if step == 0:
+            self.dive_log_append(pd.DataFrame([[
+                step, "Start", 0, 0, 0, 0, self.pressure_at_depth(0), self.pressure_at_depth(0), self.bottle.pressure, self.bottle.pressure, self.ppO2_at_depth(0), self.ppO2_at_depth(0), 0, 0, 0, 0
+            ]],
+                columns=self._dive_log.columns
+            ))
+        start_time = self._dive_log["End Time (min)"].iloc[-1]
+        start_depth = self._dive_log["End Depth (m)"].iloc[-1]
+        start_remaining_pressure = self._dive_log["End Remaining Pressure (bar)"].iloc[-1]
+        start_total_consumption_L = self._dive_log["Total Consumption (L)"].iloc[-1]
+        start_total_consumption_bar = self._dive_log["Total Consumption (bar)"].iloc[-1]
+        # calculation
+        step = len(self._dive_log)
+        end_time = start_time + time
+        start_pressure = self.pressure_at_depth(start_depth)
+        end_pressure = self.pressure_at_depth(end_depth)
+        start_ppO2 = self.ppO2_at_depth(start_depth)
+        end_ppO2 = self.ppO2_at_depth(end_depth)
+        consumption_L = self.consumption_level(start_time, end_time, start_depth, end_depth, unit="L")
+        total_consumption_L = start_total_consumption_L + consumption_L
+        consumption_bar = self.consumption_level(start_time, end_time, start_depth, end_depth, unit="bar")
+        total_consumption_bar = start_total_consumption_bar + consumption_bar
+
+        if warning:
+            self.test_depth_safe(end_depth)
+            assert start_remaining_pressure - self.bottle.reserve >= consumption_bar, f"Not enough gas for step {step} ({step_type}). Remaining pressure: {start_remaining_pressure:.2f} bar, Consumption: {consumption_bar:.2f} bar, Reserve: {self.bottle.reserve:.2f} bar"
+
+        self.dive_log_append(pd.DataFrame([[
+            step, step_type, start_time, end_time, start_depth, end_depth, start_pressure, end_pressure,
+            start_remaining_pressure, start_remaining_pressure - consumption_bar,
+            start_ppO2, end_ppO2,
+            consumption_L, total_consumption_L,
+            consumption_bar, total_consumption_bar
+            ]],
+            columns=self._dive_log.columns
+        ))
+    
+    def add_automatic_transitions(self, dive_steps:list) -> list:
+        """
+        Add automatic transitions (Ascend/Descend) between dive steps if needed.
+        
+        Parameters:
+            dive_steps (list): A list of tuples containing (step_type, time, end_depth).
+        
+        Returns:
+            list: A new list of dive steps with automatic transitions added.
+        """
+        transition_time = self.parameters.get_parameter(["transitionTime"])
+        final_dive_steps = []
+        ascent_to_safety_i = None
+        safety_stop_i = None
+        ascend_to_surface_i = None
+        add_before_end = []
+        for i in range(len(dive_steps)):
+            if i == 0 and dive_steps[i][0] != "Descent":
+                final_dive_steps.append(("Descent", transition_time, dive_steps[i][2]))
+                final_dive_steps.append(dive_steps[i])
+            elif i >= len(dive_steps) - 3:
+                if dive_steps[i][0] == "Ascent" and dive_steps[i][2] == self.safety_stop_depth:
+                    ascent_to_safety_i = i
+                elif dive_steps[i][0] == "Safety Stop" and dive_steps[i][2] == self.safety_stop_depth:
+                    safety_stop_i = i
+                elif dive_steps[i][0] == "Ascent" and dive_steps[i][2] == 0:
+                    ascend_to_surface_i = i
+                else:
+                    add_before_end = add_before_end + [i]
+            else:
+                if dive_steps[i][0] in ("Level", "Bottom") and dive_steps[i][2] < dive_steps[i - 1][2]:
+                    final_dive_steps.append(("Ascent", transition_time, dive_steps[i][2]))
+                    final_dive_steps.append(dive_steps[i])
+                elif dive_steps[i][0] in ("Level", "Bottom") and dive_steps[i][2] > dive_steps[i - 1][2]:
+                    final_dive_steps.append(("Descent", transition_time, dive_steps[i][2]))
+                    final_dive_steps.append(dive_steps[i])
+                else:
+                    final_dive_steps.append(dive_steps[i])
+        for k in add_before_end:
+            if dive_steps[k][0] in ("Level", "Bottom") and dive_steps[k][2] < dive_steps[k - 1][2]:
+                final_dive_steps.append(("Ascent", transition_time, dive_steps[k][2]))
+                final_dive_steps.append(dive_steps[k])
+            elif dive_steps[k][0] in ("Level", "Bottom") and dive_steps[k][2] > dive_steps[k - 1][2]:
+                final_dive_steps.append(("Descent", transition_time, dive_steps[k][2]))
+                final_dive_steps.append(dive_steps[k])
+            else:
+                final_dive_steps.append(dive_steps[k])
+        final_dive_steps.append(("Ascent", transition_time, self.safety_stop_depth) if ascent_to_safety_i is None else dive_steps[ascent_to_safety_i])
+        final_dive_steps.append(("Safety Stop", self.safety_stop_time, self.safety_stop_depth) if safety_stop_i is None else dive_steps[safety_stop_i])
+        final_dive_steps.append(("Ascent", transition_time, 0) if ascend_to_surface_i is None else dive_steps[ascend_to_surface_i])
+        return final_dive_steps
+
+    def make_dive_plan(self, dive_steps:list, automatic_transitions:bool=True) -> str:
+        """
+        Make a dive plan based on a list of dive steps.
+        
+        Parameters:
+            dive_steps (list): A list of tuples containing (step_type, time, end_depth).
+            automatic_transitions (bool): Whether to automatically add Ascend/Descend steps between dive steps. Defaults to True.
+        
+        Returns:
+            str: A message indicating whether the dive plan is valid or not.
+        """
+        if not self.dive_log.empty:
+            self.dive_log_reset()
+
+        # Add automatic transitions if enabled
+        final_dive_steps = []
+        if automatic_transitions:
+            transition_time = self.parameters.get_parameter(["transitionTime"])
+            for i in range(len(dive_steps)):
+                if i == 0 and dive_steps[i][0] != "Descent":
+                    final_dive_steps.append(("Descent", transition_time, dive_steps[i][2]))
+            
+        
+        for (step_type, time, end_depth) in dive_steps:
+            try:
+                self.add_dive_step(step_type, time, end_depth)
+            except AssertionError as e:
+                self.dive_log_reset()
+                return f"The dive plan is invalid ({e})."
+        return "The dive plan is valid (see dive log for details)."

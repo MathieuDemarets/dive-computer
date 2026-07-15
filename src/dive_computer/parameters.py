@@ -12,8 +12,10 @@ class Parameters:
         with open(referential_path, 'r') as file:
             self.referential = yaml.load(file, Loader=SafeLoader)
         self.params["attributes"] = {}
+        self.params["accepted_inputs"] = {}
         self.setup_check()
-        self.setup_enrich()
+        self.setup_attributes()
+        self.setup_accepted_inputs()
         self.yaml_path = yaml_path
         self.referential_path = referential_path
 
@@ -39,7 +41,7 @@ class Parameters:
                         check_parameters(param_dict[key], ref_value, full_key + "." + key if full_key else key)
         check_parameters(self.params, self.referential["dive_parameters"])
     
-    def setup_enrich(self):
+    def setup_attributes(self):
         def enrich(ref_dict:dict, key:str, key_path:list=[]):
             if isinstance(ref_dict[key], dict) and "attributes" in ref_dict[key]:
                 target = self.params["attributes"]
@@ -55,6 +57,21 @@ class Parameters:
                     enrich(ref_dict[key], sub_key, key_path + [key])
         for key in self.referential["dive_parameters"]:
             enrich(self.referential["dive_parameters"], key)
+
+    def setup_accepted_inputs(self):
+        def enrich(ref_dict:dict, key:str, key_path:list=[]):
+            if isinstance(ref_dict[key], dict) and "accepted_inputs" in ref_dict[key]:
+                target = self.params["accepted_inputs"]
+                for k in key_path:
+                    if k not in target:
+                        target[k] = {}
+                    target = target[k]
+                target[key] = ref_dict[key]["accepted_inputs"]
+            elif isinstance(ref_dict[key], dict):
+                for sub_key in ref_dict[key]:
+                    enrich(ref_dict[key], sub_key, key_path + [key])
+        for key in self.referential["scripts"]:
+            enrich(self.referential["scripts"], key)
     
     def get_parameter(self, key_path:list):
         target = self.params

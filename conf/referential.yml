@@ -23,6 +23,10 @@ dive_parameters:
           ppN2: 0.0
     volume: 
       values: [12, 15, 20, 24]
-# modules:
-#   dive_computer:
-#     bottle:
+
+scripts:
+  dive_briefing:
+    dive_log:
+      type:
+        accepted_inputs: ["Start", "Descent", "Level", "Bottom", "Ascent", "Safety Stop"]
+  
