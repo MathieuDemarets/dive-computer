@@ -1,5 +1,6 @@
 import pandas as pd
 import matplotlib.pyplot as plt
+import os
 # relative imports
 from .bottle import Bottle
 from .parameters import Parameters
@@ -281,7 +282,7 @@ class DivePlanner:
         final_dive_steps.append(("Ascent", transition_time, 0) if ascend_to_surface_i is None else dive_steps[ascend_to_surface_i])
         return final_dive_steps
 
-    def make_dive_plan(self, dive_steps:list, automatic_transitions:bool=True) -> str:
+    def make_dive_plan(self, dive_steps:list, automatic_transitions:bool=True, excel:str=None) -> str:
         """
         Make a dive plan based on a list of dive steps.
         
@@ -304,6 +305,10 @@ class DivePlanner:
             except AssertionError as e:
                 self.dive_log_reset()
                 return f"The dive plan is invalid ({e})."
+        if excel is not None:
+            if not os.path.exists(os.path.dirname(excel)):
+                os.makedirs(os.path.dirname(excel))
+            self.dive_log.to_excel(excel, index=False)
         return "The dive plan is valid (see dive log for details)."
     
 # Visualization
@@ -331,20 +336,21 @@ class DivePlanner:
                 color='green', linewidth=2
             )
         ax2.axhline(y=self.bottle.reserve, color='purple', linestyle='--', label='Reserve Pressure')
-        ax2.axhline(y=0, color='black', linestyle='--', label='Empty Pressure')
+        ax2.axhline(y=self.bottle.pressure, color='black', linestyle='--', label='Full Pressure')
         ax1.axhline(y=-self.safety_stop_depth, color='orange', linestyle='--', label='Safety Stop Depth')
         ax1.axhline(y=-self.max_depth, color='red', linestyle='--', label='Max Depth')
         
         ax1.set_ylabel("Depth (m)", color="blue")
         ax1.tick_params(axis='y', labelcolor="blue")
         ax1.set_ylim(-(self.max_depth + 5), 0)
-        ax1.legend(loc='upper right')
+        ax1.legend(loc='lower right')
         ax1.grid()
 
         ax2.set_xlabel("Time (min)")
         ax2.set_ylabel("Remaining Pressure (bar)", color="green")
-        ax2.tick_params(axis='y', labelcolor="green")
+        ax2.tick_params(axis='y', labelcolor="green", )
         ax2.set_ylim(0, self.bottle.pressure + 10)
+        ax2.set_yticks(range(0, int(self.bottle.pressure) + 26, 25))
         ax2.legend(loc='upper right')
         ax2.grid()
 
@@ -356,6 +362,9 @@ class DivePlanner:
         ax2.set_title("Remaining Tank Pressure Profile", fontsize=14)
         fig.tight_layout()
         if save_path:
+            if not os.path.exists(os.path.dirname(save_path)):
+                os.makedirs(os.path.dirname(save_path))
             plt.savefig(save_path)
+            plt.show()
         else:
             plt.show()
