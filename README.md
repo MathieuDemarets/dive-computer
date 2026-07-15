@@ -21,12 +21,19 @@ Initial release of the dive_computer.
 # v0.1.1
 
 Updates:
-* Plot remaining bars instead of consumption bars
-* Refactorisation
-* Addition of transition time between depths
-* Parametrization file
-* Security buffers for gas consumption calculations
-* Multiple graphs for clarity
+* Reworked plotting to show **remaining tank pressure (bar)** over time instead of consumed bar
+* Added explicit **transition segments between depth changes** to better model non-instant descents/ascents
+* Introduced a **central parameter/config file** to tune dive, tank, and safety assumptions
+* Split visualization into **multiple focused charts** for improved readability (profile vs gas evolution)
+* Internal **refactoring/cleanup** of planner and plotting code for maintainability
+* Added **dive planner** to check the safety of a dive profile against tank capacity and depth/time constraints.
+
+# v0.1.2
+
+Updates:
+* Work on documentation and README
+* Basic unit tests
+* Start of a dash interface for the dive planner to be hosted as a web app
 
 
 # uv instructions
