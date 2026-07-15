@@ -5,7 +5,7 @@
 Initial release of the dive_computer.
 
 * Bottle model with total gas calculation (volume x pressure)
-* DiveBriefing model to represent a dive profile with:
+* DivePlanner model to represent a dive profile with:
 	* depth and time segments
 	* ambient pressure by depth
 	* gas consumption by segment and cumulative totals

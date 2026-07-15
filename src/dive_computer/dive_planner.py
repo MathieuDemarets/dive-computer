@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from .bottle import Bottle
 from .parameters import Parameters
 
-class DiveBriefing:
+class DivePlanner:
     def __init__(
         self,
         surface_consumption: float,
@@ -42,7 +42,7 @@ class DiveBriefing:
     @classmethod
     def from_yaml(cls, config_file: str, referential_file: str):
         params = Parameters(config_file, referential_file)
-        dive_briefing = cls(
+        dive_planner = cls(
             surface_consumption=params.get_parameter(["consumption", "surface"]),
             safety_stop_depth=params.get_parameter(["safety", "safetyStop", "depth"]),
             safety_stop_time=params.get_parameter(["safety", "safetyStop", "time"]),
@@ -50,8 +50,8 @@ class DiveBriefing:
             max_ppo2=params.get_parameter(["attributes", "certification", "maxPpO2"]),
             bottle=Bottle.from_yaml(config_file, referential_file)
         )
-        dive_briefing._parameters = params
-        return dive_briefing
+        dive_planner._parameters = params
+        return dive_planner
 
 ##################################################################################################################
 ## PROPERTIES
@@ -189,7 +189,7 @@ class DiveBriefing:
             warning (bool): Whether to include a warning for this step. Defaults to True.
         """
         if self.parameters is not None:
-            accepted_step_types = self.parameters.get_parameter(["accepted_inputs", "dive_briefing", "dive_log", "type"])
+            accepted_step_types = self.parameters.get_parameter(["accepted_inputs", "dive_planner", "dive_log", "type"])
             assert step_type in accepted_step_types, f"Invalid step type: {step_type}. Accepted step types: {accepted_step_types}"
         step = len(self._dive_log)
         if step == 0:
@@ -296,18 +296,66 @@ class DiveBriefing:
             self.dive_log_reset()
 
         # Add automatic transitions if enabled
-        final_dive_steps = []
-        if automatic_transitions:
-            transition_time = self.parameters.get_parameter(["transitionTime"])
-            for i in range(len(dive_steps)):
-                if i == 0 and dive_steps[i][0] != "Descent":
-                    final_dive_steps.append(("Descent", transition_time, dive_steps[i][2]))
-            
-        
-        for (step_type, time, end_depth) in dive_steps:
+        final_dive_steps = self.add_automatic_transitions(dive_steps) if automatic_transitions else dive_steps
+
+        for (step_type, time, end_depth) in final_dive_steps:
             try:
                 self.add_dive_step(step_type, time, end_depth)
             except AssertionError as e:
                 self.dive_log_reset()
                 return f"The dive plan is invalid ({e})."
         return "The dive plan is valid (see dive log for details)."
+    
+# Visualization
+
+    def visualize_dive_plan(self, save_path:str=None):
+        """
+        Plot the dive log showing depth over time and remaining pressure over time.
+        """
+        if self.dive_log.empty:
+            print("Dive log is empty. No data to plot.")
+            return
+        
+        # Two plots, one above, the other below, sharing the same x-axis (time)
+        fig, (ax1, ax2) = plt.subplots(figsize=(8, 6), nrows=2, ncols=1, sharex=True)
+
+        for i in range(len(self.dive_log)):
+            ax1.plot(
+                [self.dive_log["Start Time (min)"].iloc[i], self.dive_log["End Time (min)"].iloc[i]],
+                [-self.dive_log["Start Depth (m)"].iloc[i], -self.dive_log["End Depth (m)"].iloc[i]],
+                color='blue', linewidth=2
+            )
+            ax2.plot(
+                [self.dive_log["Start Time (min)"].iloc[i], self.dive_log["End Time (min)"].iloc[i]],
+                [self.dive_log["Start Remaining Pressure (bar)"].iloc[i], self.dive_log["End Remaining Pressure (bar)"].iloc[i]],
+                color='green', linewidth=2
+            )
+        ax2.axhline(y=self.bottle.reserve, color='purple', linestyle='--', label='Reserve Pressure')
+        ax2.axhline(y=0, color='black', linestyle='--', label='Empty Pressure')
+        ax1.axhline(y=-self.safety_stop_depth, color='orange', linestyle='--', label='Safety Stop Depth')
+        ax1.axhline(y=-self.max_depth, color='red', linestyle='--', label='Max Depth')
+        
+        ax1.set_ylabel("Depth (m)", color="blue")
+        ax1.tick_params(axis='y', labelcolor="blue")
+        ax1.set_ylim(-(self.max_depth + 5), 0)
+        ax1.legend(loc='upper right')
+        ax1.grid()
+
+        ax2.set_xlabel("Time (min)")
+        ax2.set_ylabel("Remaining Pressure (bar)", color="green")
+        ax2.tick_params(axis='y', labelcolor="green")
+        ax2.set_ylim(0, self.bottle.pressure + 10)
+        ax2.legend(loc='upper right')
+        ax2.grid()
+
+        # for the x-axis, set the ticks to be the start and end times of each step in the dive log
+        ax2.set_xticks(list(set(self.dive_log["Start Time (min)"].tolist() + self.dive_log["End Time (min)"].tolist())))
+
+        fig.suptitle("Dive Plan Visualization", fontsize=16)
+        ax1.set_title("Dive Depth Profile", fontsize=14)
+        ax2.set_title("Remaining Tank Pressure Profile", fontsize=14)
+        fig.tight_layout()
+        if save_path:
+            plt.savefig(save_path)
+        else:
+            plt.show()

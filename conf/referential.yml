@@ -25,7 +25,7 @@ dive_parameters:
       values: [12, 15, 20, 24]
 
 scripts:
-  dive_briefing:
+  dive_planner:
     dive_log:
       type:
         accepted_inputs: ["Start", "Descent", "Level", "Bottom", "Ascent", "Safety Stop"]
