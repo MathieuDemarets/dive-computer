@@ -2,15 +2,14 @@
 
 # v0.1.0
 
-Initial release of the dive planner core.
+Initial release of the dive_computer.
 
-Main features implemented in src/dive_computer:
 * Bottle model with total gas calculation (volume x pressure)
 * DiveBriefing model to represent a dive profile with:
 	* depth and time segments
 	* ambient pressure by depth
 	* gas consumption by segment and cumulative totals
-* Consumption profile export as a pandas DataFrame with:
+* Consumption profile as a pandas DataFrame with:
 	* depth, time, pressure, L/min
 	* segment consumption in liters and bar
 	* cumulative consumption in liters and bar
@@ -19,24 +18,15 @@ Main features implemented in src/dive_computer:
 	* cumulative gas consumption over time
 	* max depth and reserve lines
 
-Typical v0.1.0 usage:
-```python
-from dive_computer import Bottle, DiveBriefing
+# v0.1.1
 
-bottle = Bottle(volume=12, pressure=200)
-briefing = DiveBriefing(
-		surface_consumption=20,
-		depths=[5, 12, 18, 6],
-		times=[5, 15, 20, 5],
-		bottle=bottle,
-		max_depth=18,
-)
-
-df = briefing.consumption_profile
-briefing.plot_consumption_profile(consumption_unit="bar")
-```
-
-
+Updates:
+* Plot remaining bars instead of consumption bars
+* Refactorisation
+* Addition of transition time between depths
+* Parametrization file
+* Security buffers for gas consumption calculations
+* Multiple graphs for clarity
 
 
 # uv instructions
